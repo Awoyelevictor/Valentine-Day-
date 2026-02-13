@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tell Me One Lie - Valentine</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&family=Great+Vibes&display=swap');
+
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            background-color: #050002; 
+            font-family: 'Montserrat', sans-serif; 
+        }
+
+        #canvas-container { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 1; 
+        }
+
+        /* Overlay */
+        #start-overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.9); 
+            z-index: 100; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column; 
+            transition: opacity 1s ease; 
+            text-align: center; 
+        }
+
+        #play-btn { 
+            padding: 15px 50px; 
+            font-size: 1.2rem; 
+            background: transparent; 
+            color: #ff0044; 
+            border: 2px solid #ff0044; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            letter-spacing: 3px; 
+            box-shadow: 0 0 20px #ff0044; 
+            transition: all 0.3s ease; 
+            font-weight: 700; 
+        }
+
+        #play-btn:hover { 
+            background: #ff0044; 
+            color: white; 
+            box-shadow: 0 0 40px #ff0044; 
+        }
+
+        /* UI Wrapper */
+        .content-wrapper { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 2; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: flex-end; 
+            pointer-events: none; 
+        }
+
+        /* Glass Lyrics Box */
+        .lyrics-container { 
+            width: 85%; 
+            max-width: 600px; 
+            height: 40vh; 
+            margin-bottom: 2rem; 
+            position: relative; 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(15px); 
+            -webkit-backdrop-filter: blur(15px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-top: 1px solid rgba(255, 255, 255, 0.2); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); 
+            border-radius: 20px; 
+            overflow: hidden; 
+            pointer-events: auto; 
+            mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent); 
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent); 
+        }
+
+        .lyrics-content { 
+            padding: 40% 20px; 
+            text-align: center; 
+            transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+        }
+
+        .lyric-line { 
+            font-size: 1rem; 
+            color: rgba(255, 255, 255, 0.3); 
+            margin: 20px 0; 
+            transition: all 0.6s ease; 
+            filter: blur(1.5px); 
+            font-weight: 300; 
+        }
+
+        .lyric-line.active { 
+            font-size: 1.4rem; 
+            font-weight: 700; 
+            color: #fff; 
+            text-shadow: 0 0 10px rgba(255, 0, 60, 0.8), 0 0 20px rgba(255, 0, 60, 0.4); 
+            transform: scale(1.1); 
+            filter: blur(0); 
+        }
+
+        /* Final Message Style */
+        #valentine-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            pointer-events: none;
+            width: 100%;
+        }
+
+        #valentine-message h1 {
+            font-family: 'Great Vibes', cursive;
+            font-size: 4rem;
+            color: #ff0044;
+            text-shadow: 0 0 20px rgba(255, 0, 68, 0.6);
+            margin: 0;
+        }
+
+        #valentine-message p {
+            font-size: 1.2rem;
+            color: white;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+    </style>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+
+    <audio id="song" src="song.mp3" preload="auto"></audio>
+
+    <div id="start-overlay">
+        <button id="play-btn">Open Package</button>
+        <p style="color: #aaa; margin-top: 15px; font-size: 0.8rem;">(Sound Required)</p>
+    </div>
+
+    <div id="valentine-message">
+        <h1>Happy Valentine's Day</h1>
+        <p>I only want you</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="content-wrapper">
+        <div class="lyrics-container" id="l-container">
+            <div class="lyrics-content" id="lyrics-box">
+                </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- 1. LYRICS CONFIGURATION (Offset -2s for faster appearance) ---
+        const lyricsData = [
+            { time: 0.0, text: "..." },
+            { time: 13.0, text: "You say I misunderstood your feelings" },
+            { time: 17.0, text: "But maybe I don't wanna understand" },
+            { time: 20.0, text: "'Cause every time that you are with me" },
+            { time: 24.0, text: "I fall in love while you touch my hand" },
+            { time: 28.0, text: "Oh, is it love or just a dream?" },
+            { time: 32.0, text: "A fake, a big fat misery?" },
+            { time: 36.0, text: "But don't you dare to wake me up" },
+            { time: 40.0, text: "'Cause in my head, it feels like love" },
+            { time: 44.0, text: "Hmm-mm, it feels like love" },
+            { time: 47.0, text: "You tell me one lie, say you love me" },
+            { time: 51.0, text: "And I don't know why I'm addicted" },
+            { time: 55.0, text: "There's a thousand girls in the world where we live in" },
+            { time: 59.0, text: "But I don't want no one but you" },
+            { time: 63.0, text: "You tell me one lie, say you love me" },
+            { time: 66.0, text: "And I don't know why I'm addicted" },
+            { time: 70.0, text: "There's a thousand girls in the world where we live in" },
+            { time: 74.0, text: "But I don't want no one but you" },
+            { time: 78.0, text: "My friends they say I'm just a sucker for love" },
+            { time: 82.0, text: "And maybe they are right, but this ain't wrong" },
+            { time: 86.0, text: "I am just waiting for my chance to come" },
+            { time: 90.0, text: "To be your man my whole life long" },
+            { time: 94.0, text: "Oh, is it love or just a dream?" },
+            { time: 98.0, text: "A fake, a big fat misery?" },
+            { time: 102.0, text: "But don't you dare to wake me up" },
+            { time: 106.0, text: "'Cause in my head, it feels like love" },
+            { time: 109.0, text: "You tell me one lie, say you love me" },
+            { time: 113.0, text: "And I don't know why I'm addicted" },
+            { time: 117.0, text: "There's a thousand girls in the world where we live in" },
+            { time: 121.0, text: "But I don't want no one but you" },
+            { time: 125.0, text: "You tell me one lie, say you love me" },
+            { time: 129.0, text: "And I don't know why I'm addicted" },
+            { time: 133.0, text: "There's a thousand girls in the world where we live in" },
+            { time: 137.0, text: "But I don't want no one but you" },
+            { time: 143.0, text: "..." }
+        ];
+
+        const audio = document.getElementById('song');
+        const lyricsBox = document.getElementById('lyrics-box');
+        const playBtn = document.getElementById('play-btn');
+        const overlay = document.getElementById('start-overlay');
+        const valMsg = document.getElementById('valentine-message');
+        const lyricsCont = document.getElementById('l-container');
+
+        // Populate Lyrics
+        lyricsData.forEach((line, index) => {
+            const el = document.createElement('div');
+            el.classList.add('lyric-line');
+            el.innerText = line.text;
+            el.id = `line-${index}`;
+            lyricsBox.appendChild(el);
+        });
+
+        // Play Button Logic
+        playBtn.addEventListener('click', () => {
+            audio.play().then(() => {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.style.display = 'none', 1000);
+                animate();
+            });
+        });
+
+        // Sync Logic
+        audio.addEventListener('timeupdate', () => {
+            const currentTime = audio.currentTime;
+
+            // Final Message Trigger (around end of song)
+            if (currentTime >= 143) {
+                lyricsCont.style.opacity = '0';
+                lyricsCont.style.transition = 'opacity 1.5s ease';
+                valMsg.style.opacity = '1';
+            }
+
+            let activeIndex = -1;
+            for (let i = 0; i < lyricsData.length; i++) {
+                if (currentTime >= lyricsData[i].time) activeIndex = i;
+                else break;
+            }
+
+            if (activeIndex !== -1) {
+                document.querySelectorAll('.lyric-line').forEach((line, idx) => {
+                    if (idx === activeIndex) {
+                        if (!line.classList.contains('active')) {
+                            line.classList.add('active');
+                            line.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                    } else {
+                        line.classList.remove('active');
+                    }
+                });
+            }
+        });
+
+        // --- THREE.JS SCENE ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050002, 0.02);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Lighting
+        const spotLight = new THREE.SpotLight(0xff0044, 200);
+        spotLight.position.set(10, 10, 10);
+        scene.add(spotLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+        // Heart Mesh
+        const heartShape = new THREE.Shape();
+        heartShape.moveTo(5, 5);
+        heartShape.bezierCurveTo(5, 5, 4, 0, 0, 0);
+        heartShape.bezierCurveTo(-6, 0, -6, 7, -6, 7);
+        heartShape.bezierCurveTo(-6, 11, -3, 15.4, 5, 19);
+        heartShape.bezierCurveTo(12, 15.4, 16, 11, 16, 7);
+        heartShape.bezierCurveTo(16, 7, 16, 0, 10, 0);
+        heartShape.bezierCurveTo(7, 0, 5, 5, 5, 5);
+
+        const geometry = new THREE.ExtrudeGeometry(heartShape, { depth: 4, bevelEnabled: true, bevelSize: 1.5 });
+        geometry.center();
+        geometry.rotateZ(Math.PI);
+
+        const material = new THREE.MeshPhysicalMaterial({ color: 0xff0020, metalness: 0.1, roughness: 0.05, transmission: 0.8, thickness: 2 });
+        const heartMesh = new THREE.Mesh(geometry, material);
+        heartMesh.scale.set(0.2, 0.2, 0.2);
+        heartMesh.position.y = 3;
+        scene.add(heartMesh);
+
+        // Background Particles
+        const pGeo = new THREE.BufferGeometry();
+        const pCount = 1500;
+        const pPos = new Float32Array(pCount * 3);
+        for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random() - 0.5) * 50;
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const pMat = new THREE.PointsMaterial({ size: 0.15, color: 0xffaaaa, transparent: true, opacity: 0.5 });
+        const particles = new THREE.Points(pGeo, pMat);
+        scene.add(particles);
+
+        // Bloom Effect
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85));
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            heartMesh.rotation.y = t * 0.5;
+            heartMesh.position.y = 3 + Math.sin(t) * 0.3;
+            particles.rotation.y = t * 0.02;
+            composer.render();
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
